@@ -10,20 +10,23 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="SistemPemantauanKeamananPintarV2"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="725"/>
-        <CursorPos X="33" Y="742"/>
+        <CursorPos X="22"/>
         <UsageCount Value="21"/>
         <Loaded Value="True"/>
       </Unit>
     </Units>
-    <JumpHistory HistoryIndex="1">
+    <JumpHistory HistoryIndex="2">
       <Position>
         <Filename Value="siskamlingrtrw.lpr"/>
         <Caret Line="292" Column="67" TopLine="284"/>
       </Position>
       <Position>
         <Filename Value="siskamlingrtrw.lpr"/>
-        <Caret Line="52" Column="33" TopLine="136"/>
+        <Caret Line="755" Column="50" TopLine="725"/>
+      </Position>
+      <Position>
+        <Filename Value="siskamlingrtrw.lpr"/>
+        <Caret Line="774" Column="5" TopLine="731"/>
       </Position>
     </JumpHistory>
     <RunParams>
