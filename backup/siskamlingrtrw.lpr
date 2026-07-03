@@ -739,8 +739,8 @@ begin
     writeln('2. Manajemen Laporan');
     writeln('3. Manajemen Petugas dan Patroli');
     writeln('4. Statistik');
-    writeln('5. Simpan Manual');
-    writeln('6. Ekspor TXT');
+    writeln('5. Simpan Data (As TXT)');
+    writeln('6. Impor Data (TXT)');
     writeln('0. Keluar');
     writeln('=========================================');
 
