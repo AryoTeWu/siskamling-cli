@@ -1,4 +1,4 @@
-program SistemPemantauanKeamananPintarV2;
+program SmartSecuritySystem;
 
 {$mode objfpc}{$H+}
 
@@ -6,13 +6,23 @@ uses
   SysUtils, CRT;
 
 const
-  MAKS_LAPORAN = 100;
-  MAKS_ANTREAN = 100;
-  MAKS_PETUGAS = 100;
-  FILE_LAPORAN = 'laporan.dat';
-  FILE_PETUGAS = 'petugas.dat';
+  MAX_PETUGAS = 5;
+  MAX_LAPORAN = 100;
+  MAX_JADWAL = 7;
 
 type
+  TPetugas = record
+    id: integer;
+    nama: string[50];
+    blok: string[20];
+  end;
+
+  TJadwal = record
+    hari: string[15];
+    petugas1: integer;
+    petugas2: integer;
+  end;
+
   TLaporan = record
     id: integer;
     waktu: string[10];
@@ -23,556 +33,484 @@ type
     status: string[20];
   end;
 
-  TPetugas = record
-    nama: string[50];
-    blok: string[10];
-  end;
-
 var
-  laporan: array[1..MAKS_LAPORAN] of TLaporan;
-  antreanLaporan: array[1..MAKS_ANTREAN] of integer;
+  petugas: array[1..MAX_PETUGAS] of TPetugas;
+  jumlahPetugas: integer = 0;
 
-  petugas: array[1..MAKS_PETUGAS] of TPetugas;
+  jadwal: array[1..MAX_JADWAL] of TJadwal;
 
-  totalLaporan: integer;
-  totalPetugas: integer;
-
-  alDepan, alBelakang: integer; { al = antrean laporan }
-  apDepan, apBelakang: integer; { ap = antrean petugas }
-
-  petugasAktif: string;
-  patroliAktif: boolean;
-
-{ ================= UTILITAS ================= }
+  laporan: array[1..MAX_LAPORAN] of TLaporan;
+  jumlahLaporan: integer = 0;
 
 procedure Jeda;
 begin
   writeln;
-  writeln('Tekan ENTER...');
+  writeln('Tekan Enter...');
   readln;
 end;
 
-procedure ResetAntrean;
-begin
-  alDepan := 1;
-  alBelakang := 0;
-  apDepan := 1;
-  apBelakang := 0;
-end;
-
-function JumlahTertunda: integer;
-begin
-  JumlahTertunda := alBelakang - alDepan + 1;
-  if JumlahTertunda < 0 then
-    JumlahTertunda := 0;
-end;
-
-function JumlahDiproses: integer;
+function HariSekarang: string;
 var
-  i, cnt: integer;
+  h: string;
 begin
-  cnt := 0;
-  for i := 1 to totalLaporan do
-    if laporan[i].status = 'Diproses' then
-      Inc(cnt);
-  JumlahDiproses := cnt;
+  h := FormatDateTime('dddd', Now);
+
+  if h = 'Monday' then Result := 'Senin'
+  else if h = 'Tuesday' then Result := 'Selasa'
+  else if h = 'Wednesday' then Result := 'Rabu'
+  else if h = 'Thursday' then Result := 'Kamis'
+  else if h = 'Friday' then Result := 'Jumat'
+  else if h = 'Saturday' then Result := 'Sabtu'
+  else Result := 'Minggu';
 end;
 
-function CariJamRawan: integer;
+procedure InitJadwal;
+begin
+  jadwal[1].hari := 'Senin';
+  jadwal[2].hari := 'Selasa';
+  jadwal[3].hari := 'Rabu';
+  jadwal[4].hari := 'Kamis';
+  jadwal[5].hari := 'Jumat';
+  jadwal[6].hari := 'Sabtu';
+  jadwal[7].hari := 'Minggu';
+
+  jadwal[1].petugas1 := 0; jadwal[1].petugas2 := 0;
+  jadwal[2].petugas1 := 0; jadwal[2].petugas2 := 0;
+  jadwal[3].petugas1 := 0; jadwal[3].petugas2 := 0;
+  jadwal[4].petugas1 := 0; jadwal[4].petugas2 := 0;
+  jadwal[5].petugas1 := 0; jadwal[5].petugas2 := 0;
+  jadwal[6].petugas1 := 0; jadwal[6].petugas2 := 0;
+  jadwal[7].petugas1 := 0; jadwal[7].petugas2 := 0;
+end;
+
+procedure TampilPetugas;
 var
-  jamCount: array[0..23] of integer;
-  i, maxCount, jamRawan, jamAktual: integer;
-  jamStr: string;
-begin
-  for i := 0 to 23 do
-    jamCount[i] := 0;
-
-  maxCount := 0;
-  jamRawan := -1;
-
-  for i := 1 to totalLaporan do
-  begin
-    jamStr := Copy(laporan[i].waktu,1,2);
-    jamAktual := StrToIntDef(jamStr,-1);
-
-    if (jamAktual >= 0) and (jamAktual <= 23) then
-      Inc(jamCount[jamAktual]);
-  end;
-
-  for i := 0 to 23 do
-  begin
-    if jamCount[i] > maxCount then
-    begin
-      maxCount := jamCount[i];
-      jamRawan := i;
-    end;
-  end;
-
-  CariJamRawan := jamRawan;
-end;
-
-{ ================= ANTREAN PRIORITAS LAPORAN ================= }
-
-procedure MasukAntreanLaporan(indeksLaporan: integer);
-var
-  i, j, temp: integer;
-begin
-  if alBelakang < MAKS_ANTREAN then
-  begin
-    Inc(alBelakang);
-    antreanLaporan[alBelakang] := indeksLaporan;
-
-    for i := alDepan to alBelakang - 1 do
-    begin
-      for j := alDepan to alBelakang - 1 do
-      begin
-        if laporan[antreanLaporan[j]].prioritas < laporan[antreanLaporan[j+1]].prioritas then
-        begin
-          temp := antreanLaporan[j];
-          antreanLaporan[j] := antreanLaporan[j+1];
-          antreanLaporan[j+1] := temp;
-        end;
-      end;
-    end;
-  end;
-end;
-
-procedure KeluarAntreanLaporan;
-begin
-  if alDepan <= alBelakang then
-    Inc(alDepan);
-end;
-
-{ ================= ANTREAN PETUGAS ================= }
-
-procedure MasukAntreanPetugas(p: TPetugas);
-begin
-  if apBelakang < MAKS_PETUGAS then
-  begin
-    Inc(apBelakang);
-    petugas[apBelakang] := p;
-  end;
-end;
-
-procedure KeluarAntreanPetugas;
-begin
-  if apDepan <= apBelakang then
-    Inc(apDepan);
-end;
-
-{ ================= PENANGANAN FILE ================= }
-
-procedure SimpanLaporan;
-var
-  f: file of TLaporan;
-  i: integer;
-begin
-  Assign(f, FILE_LAPORAN);
-  Rewrite(f);
-
-  for i := 1 to totalLaporan do
-    Write(f, laporan[i]);
-
-  Close(f);
-end;
-
-procedure MuatLaporan;
-var
-  f: file of TLaporan;
-  temp: TLaporan;
-begin
-  totalLaporan := 0;
-
-  Assign(f, FILE_LAPORAN);
-  {$I-}
-  Reset(f);
-  {$I+}
-
-  if IOResult = 0 then
-  begin
-    while not EOF(f) do
-    begin
-      Read(f, temp);
-      Inc(totalLaporan);
-      laporan[totalLaporan] := temp;
-
-      if temp.status = 'Tertunda' then
-        MasukAntreanLaporan(totalLaporan);
-    end;
-    Close(f);
-  end;
-end;
-
-procedure SimpanPetugas;
-var
-  f: file of TPetugas;
-  i: integer;
-begin
-  Assign(f, FILE_PETUGAS);
-  Rewrite(f);
-
-  for i := apDepan to apBelakang do
-    Write(f, petugas[i]);
-
-  Close(f);
-end;
-
-procedure MuatPetugas;
-var
-  f: file of TPetugas;
-  temp: TPetugas;
-begin
-  apDepan := 1;
-  apBelakang := 0;
-  Assign(f, FILE_PETUGAS);
-
-  {$I-}
-  Reset(f);
-  {$I+}
-
-  if IOResult = 0 then
-  begin
-    while not EOF(f) do
-    begin
-      Read(f,temp);
-      MasukAntreanPetugas(temp);
-    end;
-    Close(f);
-  end;
-end;
-
-procedure SimpanSemua;
-begin
-  SimpanLaporan;
-  SimpanPetugas;
-end;
-
-procedure CariLaporanByID;
-var
-  idCari, i: integer;
-  ketemu: boolean;
-begin
-  ClrScr;
-  ketemu := False;
-
-  write('Masukkan ID laporan: ');
-  readln(idCari);
-
-  for i := 1 to totalLaporan do
-  begin
-    if laporan[i].id = idCari then
-    begin
-      ketemu := True;
-      writeln('===== DATA DITEMUKAN =====');
-      writeln('ID        : ', laporan[i].id);
-      writeln('Waktu     : ', laporan[i].waktu);
-      writeln('Pelapor   : ', laporan[i].pelapor);
-      writeln('Lokasi    : ', laporan[i].lokasi);
-      writeln('Kategori  : ', laporan[i].kategori);
-      writeln('Prioritas : ', laporan[i].prioritas);
-      writeln('Status    : ', laporan[i].status);
-    end;
-  end;
-
-  if not ketemu then
-    writeln('Laporan tidak ditemukan.');
-
-  Jeda;
-end;
-
-procedure CariLaporanByLokasi;
-var
-  lokasiCari: string;
   i: integer;
 begin
   ClrScr;
+  writeln('===== DAFTAR PETUGAS =====');
 
-  write('Masukkan lokasi: ');
-  readln(lokasiCari);
-
-  for i := 1 to totalLaporan do
+  if jumlahPetugas = 0 then
   begin
-    if LowerCase(laporan[i].lokasi) = LowerCase(lokasiCari) then
-    begin
-      writeln('ID: ', laporan[i].id,
-              ' | Kategori: ', laporan[i].kategori,
-              ' | Status: ', laporan[i].status);
-    end;
+    writeln('Belum ada petugas.');
+    Jeda;
+    Exit;
+  end;
+
+  for i := 1 to jumlahPetugas do
+  begin
+    writeln('ID   : ', petugas[i].id);
+    writeln('Nama : ', petugas[i].nama);
+    writeln('Blok : ', petugas[i].blok);
+    writeln('-------------------------');
   end;
 
   Jeda;
 end;
 
-function CariZonaBahaya: string;
-var
-  i, j, count, maxCount: integer;
-  lokasiRawan: string;
-begin
-  maxCount := 0;
-  lokasiRawan := '-';
-
-  for i := 1 to totalLaporan do
-  begin
-    count := 0;
-
-    for j := 1 to totalLaporan do
-      if laporan[i].lokasi = laporan[j].lokasi then
-        Inc(count);
-
-    if count > maxCount then
-    begin
-      maxCount := count;
-      lokasiRawan := laporan[i].lokasi;
-    end;
-  end;
-
-  CariZonaBahaya := lokasiRawan;
-end;
-
-function KategoriTerbanyak: string;
-var
-  i, j, count, maxCount: integer;
-  kategoriMax: string;
-begin
-  maxCount := 0;
-  kategoriMax := '-';
-
-  for i := 1 to totalLaporan do
-  begin
-    count := 0;
-
-    for j := 1 to totalLaporan do
-      if laporan[i].kategori = laporan[j].kategori then
-        Inc(count);
-
-    if count > maxCount then
-    begin
-      maxCount := count;
-      kategoriMax := laporan[i].kategori;
-    end;
-  end;
-
-  KategoriTerbanyak := kategoriMax;
-end;
-
-procedure EksporTXT;
-var
-  f: Text;
-  i: integer;
-begin
-  Assign(f, 'laporan_export.txt');
-  Rewrite(f);
-
-  writeln(f, '===== LAPORAN KEAMANAN =====');
-
-  for i := 1 to totalLaporan do
-  begin
-    writeln(f, 'ID: ', laporan[i].id);
-    writeln(f, 'Waktu: ', laporan[i].waktu);
-    writeln(f, 'Pelapor: ', laporan[i].pelapor);
-    writeln(f, 'Lokasi: ', laporan[i].lokasi);
-    writeln(f, 'Kategori: ', laporan[i].kategori);
-    writeln(f, 'Prioritas: ', laporan[i].prioritas);
-    writeln(f, 'Status: ', laporan[i].status);
-    writeln(f, '----------------------');
-  end;
-
-  Close(f);
-
-  writeln('Ekspor TXT berhasil.');
-  Jeda;
-end;
-
-procedure MuatSemua;
-begin
-  MuatLaporan;
-  MuatPetugas;
-end;
-
-{ ================= DASBOR ================= }
-
-procedure TampilDasbor;
-var
-  jam: integer;
+procedure TambahPetugas;
 begin
   ClrScr;
 
-  jam := CariJamRawan;
+  if jumlahPetugas >= MAX_PETUGAS then
+  begin
+    writeln('Maksimal petugas hanya 5 orang.');
+    Jeda;
+    Exit;
+  end;
 
-  writeln('=========================================');
-  writeln('    SISTEM PEMANTAUAN KEAMANAN PINTAR');
-  writeln('=========================================');
-  writeln('Total Laporan     : ', totalLaporan);
-  writeln('Laporan Tertunda  : ', JumlahTertunda);
-  writeln('Laporan Diproses  : ', JumlahDiproses);
-  writeln('Petugas Siaga     : ', apBelakang - apDepan + 1);
-  writeln('Zona Bahaya       : ', CariZonaBahaya);
-  writeln('Kasus Terbanyak   : ', KategoriTerbanyak);
+  Inc(jumlahPetugas);
 
-  if jam <> -1 then
-    writeln('Jam Rawan         : ', jam:2, ':00')
-  else
-    writeln('Jam Rawan         : Belum ada data');
+  petugas[jumlahPetugas].id := jumlahPetugas;
 
-  if patroliAktif then
-    writeln('Patroli Aktif     : ', petugasAktif)
-  else
-    writeln('Patroli Aktif     : Tidak ada');
+  writeln('===== TAMBAH PETUGAS =====');
 
-  writeln('=========================================');
+  write('Nama: ');
+  readln(petugas[jumlahPetugas].nama);
+
+  write('Blok: ');
+  readln(petugas[jumlahPetugas].blok);
+
+  writeln('Petugas berhasil ditambahkan.');
   Jeda;
 end;
-{ ================= MANAJEMEN LAPORAN ================= }
+
+procedure EditPetugas;
+var
+  id, i: integer;
+begin
+  ClrScr;
+
+  if jumlahPetugas = 0 then
+  begin
+    writeln('Belum ada petugas.');
+    Jeda;
+    Exit;
+  end;
+
+  writeln('===== EDIT PETUGAS =====');
+  for i := 1 to jumlahPetugas do
+    writeln(petugas[i].id, '. ', petugas[i].nama);
+
+  write('Masukkan ID petugas: ');
+  readln(id);
+
+  if (id < 1) or (id > jumlahPetugas) then
+  begin
+    writeln('ID tidak valid.');
+    Jeda;
+    Exit;
+  end;
+
+  write('Nama baru: ');
+  readln(petugas[id].nama);
+
+  write('Blok baru: ');
+  readln(petugas[id].blok);
+
+  writeln('Data berhasil diupdate.');
+  Jeda;
+end;
+
+procedure HapusPetugas;
+var
+  id, i: integer;
+begin
+  ClrScr;
+
+  if jumlahPetugas = 0 then
+  begin
+    writeln('Belum ada petugas.');
+    Jeda;
+    Exit;
+  end;
+
+  writeln('===== HAPUS PETUGAS =====');
+  for i := 1 to jumlahPetugas do
+    writeln(petugas[i].id, '. ', petugas[i].nama);
+
+  write('Masukkan ID petugas: ');
+  readln(id);
+
+  if (id < 1) or (id > jumlahPetugas) then
+  begin
+    writeln('ID tidak valid.');
+    Jeda;
+    Exit;
+  end;
+
+  for i := id to jumlahPetugas - 1 do
+  begin
+    petugas[i] := petugas[i + 1];
+    petugas[i].id := i;
+  end;
+
+  Dec(jumlahPetugas);
+
+  writeln('Petugas berhasil dihapus.');
+  Jeda;
+end;
+
+procedure MenuPetugas;
+var
+  pilih: char;
+begin
+  repeat
+    ClrScr;
+    writeln('===== MENU PETUGAS =====');
+    writeln('1. Tambah Petugas');
+    writeln('2. Lihat Petugas');
+    writeln('3. Edit Petugas');
+    writeln('4. Hapus Petugas');
+    writeln('0. Kembali');
+    write('Pilih: ');
+    readln(pilih);
+
+    case pilih of
+      '1': TambahPetugas;
+      '2': TampilPetugas;
+      '3': EditPetugas;
+      '4': HapusPetugas;
+    end;
+  until pilih = '0';
+end;
+
+procedure TampilJadwal;
+var
+  i: integer;
+begin
+  ClrScr;
+  writeln('===== JADWAL PATROLI =====');
+
+  for i := 1 to 7 do
+  begin
+    writeln(jadwal[i].hari);
+
+    if jadwal[i].petugas1 <> 0 then
+      writeln('Petugas 1: ', petugas[jadwal[i].petugas1].nama)
+    else
+      writeln('Petugas 1: -');
+
+    if jadwal[i].petugas2 <> 0 then
+      writeln('Petugas 2: ', petugas[jadwal[i].petugas2].nama)
+    else
+      writeln('Petugas 2: -');
+
+    writeln('---------------------------');
+  end;
+
+  Jeda;
+end;
+
+procedure AturJadwal;
+var
+  hari, p1, p2, i: integer;
+begin
+  ClrScr;
+
+  if jumlahPetugas < 2 then
+  begin
+    writeln('Minimal butuh 2 petugas.');
+    Jeda;
+    Exit;
+  end;
+
+  writeln('===== ATUR JADWAL =====');
+  writeln('1. Senin');
+  writeln('2. Selasa');
+  writeln('3. Rabu');
+  writeln('4. Kamis');
+  writeln('5. Jumat');
+  writeln('6. Sabtu');
+  writeln('7. Minggu');
+
+  write('Pilih hari: ');
+  readln(hari);
+
+  if (hari < 1) or (hari > 7) then
+  begin
+    writeln('Hari tidak valid.');
+    Jeda;
+    Exit;
+  end;
+
+  writeln;
+  writeln('Daftar Petugas:');
+  for i := 1 to jumlahPetugas do
+    writeln(petugas[i].id, '. ', petugas[i].nama);
+
+  write('Pilih Petugas 1 (ID): ');
+  readln(p1);
+
+  write('Pilih Petugas 2 (ID): ');
+  readln(p2);
+
+  if (p1 < 1) or (p1 > jumlahPetugas) or
+     (p2 < 1) or (p2 > jumlahPetugas) then
+  begin
+    writeln('ID petugas tidak valid.');
+    Jeda;
+    Exit;
+  end;
+
+  if p1 = p2 then
+  begin
+    writeln('Petugas tidak boleh sama.');
+    Jeda;
+    Exit;
+  end;
+
+  jadwal[hari].petugas1 := p1;
+  jadwal[hari].petugas2 := p2;
+
+  writeln('Jadwal berhasil diatur.');
+  Jeda;
+end;
+
+procedure TampilPetugasHariIni;
+var
+  hariSek, hariJadwal: string;
+  i: integer;
+begin
+  ClrScr;
+  writeln('===== PETUGAS HARI INI =====');
+
+  hariSek := HariSekarang;
+  writeln('Hari ini: ', hariSek);
+  writeln;
+
+  for i := 1 to 7 do
+  begin
+    hariJadwal := jadwal[i].hari;
+
+    if hariSek = hariJadwal then
+    begin
+      if jadwal[i].petugas1 <> 0 then
+        writeln('Petugas 1: ', petugas[jadwal[i].petugas1].nama)
+      else
+        writeln('Petugas 1: -');
+
+      if jadwal[i].petugas2 <> 0 then
+        writeln('Petugas 2: ', petugas[jadwal[i].petugas2].nama)
+      else
+        writeln('Petugas 2: -');
+
+      Break;
+    end;
+  end;
+
+  Jeda;
+end;
+
+procedure MenuJadwal;
+var
+  pilih: char;
+begin
+  repeat
+    ClrScr;
+    writeln('===== MENU JADWAL =====');
+    writeln('1. Lihat Jadwal');
+    writeln('2. Atur Jadwal');
+    writeln('3. Petugas Hari Ini');
+    writeln('0. Kembali');
+    write('Pilih: ');
+    readln(pilih);
+
+    case pilih of
+      '1': TampilJadwal;
+      '2': AturJadwal;
+      '3': TampilPetugasHariIni;
+    end;
+  until pilih = '0';
+end;
 
 procedure InputLaporan;
 begin
   ClrScr;
 
-  if totalLaporan >= MAKS_LAPORAN then
+  if jumlahLaporan >= MAX_LAPORAN then
   begin
     writeln('Kapasitas laporan penuh.');
     Jeda;
     Exit;
   end;
 
-  Inc(totalLaporan);
-
-  laporan[totalLaporan].id := totalLaporan;
+  Inc(jumlahLaporan);
+  laporan[jumlahLaporan].id := jumlahLaporan;
 
   writeln('===== INPUT LAPORAN =====');
-  write('Waktu (HH:MM)      : ');
-  readln(laporan[totalLaporan].waktu);
 
-  write('Nama Pelapor       : ');
-  readln(laporan[totalLaporan].pelapor);
+  write('Waktu (HH:MM): ');
+  readln(laporan[jumlahLaporan].waktu);
 
-  write('Lokasi             : ');
-  readln(laporan[totalLaporan].lokasi);
+  write('Nama Pelapor: ');
+  readln(laporan[jumlahLaporan].pelapor);
 
-  write('Kategori Kejadian  : ');
-  readln(laporan[totalLaporan].kategori);
+  write('Lokasi: ');
+  readln(laporan[jumlahLaporan].lokasi);
 
-  write('Prioritas (1-3)    : ');
-  readln(laporan[totalLaporan].prioritas);
+  write('Kategori: ');
+  readln(laporan[jumlahLaporan].kategori);
 
-  laporan[totalLaporan].status := 'Tertunda';
+  write('Prioritas (1-3): ');
+  readln(laporan[jumlahLaporan].prioritas);
 
-  MasukAntreanLaporan(totalLaporan);
+  laporan[jumlahLaporan].status := 'Pending';
 
-  SimpanSemua;
-
-  writeln;
   writeln('Laporan berhasil ditambahkan.');
   Jeda;
 end;
 
-procedure TampilSemuaLaporan;
+procedure TampilLaporan;
 var
   i: integer;
 begin
   ClrScr;
+  writeln('===== DAFTAR LAPORAN =====');
 
-  writeln('================================================================================================');
-  writeln('ID | WAKTU | PELAPOR        | LOKASI         | KATEGORI       | PRIORITAS | STATUS');
-  writeln('================================================================================================');
-
-  for i := 1 to totalLaporan do
+  if jumlahLaporan = 0 then
   begin
-    writeln(
-      laporan[i].id:2,' | ',
-      laporan[i].waktu:5,' | ',
-      laporan[i].pelapor:14,' | ',
-      laporan[i].lokasi:14,' | ',
-      laporan[i].kategori:14,' | ',
-      laporan[i].prioritas:9,' | ',
-      laporan[i].status
-    );
+    writeln('Belum ada laporan.');
+    Jeda;
+    Exit;
   end;
 
-  writeln('================================================================================================');
+  for i := 1 to jumlahLaporan do
+  begin
+    writeln('ID        : ', laporan[i].id);
+    writeln('Waktu     : ', laporan[i].waktu);
+    writeln('Pelapor   : ', laporan[i].pelapor);
+    writeln('Lokasi    : ', laporan[i].lokasi);
+    writeln('Kategori  : ', laporan[i].kategori);
+    writeln('Prioritas : ', laporan[i].prioritas);
+    writeln('Status    : ', laporan[i].status);
+    writeln('-----------------------------');
+  end;
 
   Jeda;
 end;
 
-
-procedure UrutkanSemuaLaporan;
+procedure DispatchDarurat;
 var
-  i, j: integer;
-  temp: TLaporan;
+  i: integer;
 begin
-  for i := 1 to totalLaporan - 1 do
+  writeln;
+  writeln('===== DISPATCH DARURAT =====');
+
+  for i := 1 to 7 do
   begin
-    for j := 1 to totalLaporan - i do
+    if jadwal[i].hari = HariSekarang then
     begin
-      if laporan[j].prioritas < laporan[j+1].prioritas then
-      begin
-        temp := laporan[j];
-        laporan[j] := laporan[j+1];
-        laporan[j+1] := temp;
-      end;
+      if jadwal[i].petugas1 <> 0 then
+        writeln('Petugas 1: ', petugas[jadwal[i].petugas1].nama);
+
+      if jadwal[i].petugas2 <> 0 then
+        writeln('Petugas 2: ', petugas[jadwal[i].petugas2].nama);
+
+      Break;
+    end;
+  end;
+end;
+
+procedure ProcessLaporan;
+var
+  i, idx, maxPrio: integer;
+begin
+  ClrScr;
+
+  idx := -1;
+  maxPrio := -1;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    if (laporan[i].status = 'Pending') and
+       (laporan[i].prioritas > maxPrio) then
+    begin
+      maxPrio := laporan[i].prioritas;
+      idx := i;
     end;
   end;
 
-  writeln('Semua laporan berhasil diurutkan.');
-  Jeda;
-end;
-
-procedure TampilAntreanLaporan;
-var
-  i, idx: integer;
-begin
-  ClrScr;
-  writeln('========= ANTREAN LAPORAN =========');
-
-  if alDepan > alBelakang then
+  if idx = -1 then
   begin
-    writeln('Antrean kosong.');
+    writeln('Tidak ada laporan pending.');
     Jeda;
     Exit;
   end;
 
-  for i := alDepan to alBelakang do
-  begin
-    idx := antreanLaporan[i];
-
-    writeln('ID        : ', laporan[idx].id);
-    writeln('Lokasi    : ', laporan[idx].lokasi);
-    writeln('Kategori  : ', laporan[idx].kategori);
-    writeln('Prioritas : ', laporan[idx].prioritas);
-    writeln('Status    : ', laporan[idx].status);
-    writeln('--------------------------');
-  end;
-
-  Jeda;
-end;
-
-procedure ProsesLaporan;
-var
-  idx: integer;
-begin
-  ClrScr;
-
-  if alDepan > alBelakang then
-  begin
-    writeln('Tidak ada laporan yang belum diproses.');
-    Jeda;
-    Exit;
-  end;
-
-  idx := antreanLaporan[alDepan];
-
-  laporan[idx].status := 'Diproses';
-
-  writeln('Laporan diproses:');
+  writeln('===== PROCESS LAPORAN =====');
   writeln('ID       : ', laporan[idx].id);
   writeln('Lokasi   : ', laporan[idx].lokasi);
   writeln('Kategori : ', laporan[idx].kategori);
+  writeln('Prioritas: ', laporan[idx].prioritas);
 
-  KeluarAntreanLaporan;
-  SimpanSemua;
+  laporan[idx].status := 'Processed';
+
+  if laporan[idx].prioritas = 3 then
+    DispatchDarurat;
 
   writeln;
-  writeln('Laporan berhasil diproses.');
+  writeln('Laporan selesai diproses.');
   Jeda;
 end;
 
@@ -584,146 +522,90 @@ begin
     ClrScr;
     writeln('===== MENU LAPORAN =====');
     writeln('1. Input Laporan');
-    writeln('2. Lihat Semua Laporan');
-    writeln('3. Lihat Laporan Belum Diproses');
-    writeln('4. Proses Laporan');
-    writeln('5. Cari Laporan berdasarkan ID');
-    writeln('6. Cari Laporan berdasarkan Lokasi');
-    writeln('7. Urutkan Semua Laporan');
+    writeln('2. Lihat Laporan');
+    writeln('3. Process Laporan');
     writeln('0. Kembali');
     write('Pilih: ');
     readln(pilih);
 
     case pilih of
       '1': InputLaporan;
-      '2': TampilSemuaLaporan;
-      '3': TampilAntreanLaporan;
-      '4': ProsesLaporan;
-      '5': CariLaporanByID;
-      '6': CariLaporanByLokasi;
-      '7': UrutkanSemuaLaporan;
+      '2': TampilLaporan;
+      '3': ProcessLaporan;
     end;
   until pilih = '0';
 end;
 
-{ ================= MANAJEMEN PATROLI ================= }
-
-procedure TambahPetugas;
+procedure Dashboard;
 var
-  p: TPetugas;
-begin
-  ClrScr;
-  writeln('===== TAMBAH PETUGAS =====');
-
-  write('Nama Petugas : ');
-  readln(p.nama);
-
-  write('Blok Area    : ');
-  readln(p.blok);
-
-  MasukAntreanPetugas(p);
-  SimpanSemua;
-
-  writeln('Petugas ditambahkan.');
-  Jeda;
-end;
-
-procedure TampilAntreanPetugas;
-var
-  i: integer;
-begin
-  ClrScr;
-  writeln('===== ANTREAN PETUGAS =====');
-
-  if apDepan > apBelakang then
-  begin
-    writeln('Antrean kosong.');
-    Jeda;
-    Exit;
-  end;
-
-  for i := apDepan to apBelakang do
-  begin
-    writeln(i - apDepan + 1, '. ', petugas[i].nama, ' - Blok ', petugas[i].blok);
-  end;
-
-  Jeda;
-end;
-
-procedure BerangkatkanPetugas;
-var
-  jam: integer;
+  totalPending, totalProcessed, i: integer;
 begin
   ClrScr;
 
-  if apDepan > apBelakang then
+  totalPending := 0;
+  totalProcessed := 0;
+
+  for i := 1 to jumlahLaporan do
   begin
-    writeln('Tidak ada petugas.');
-    Jeda;
-    Exit;
+    if laporan[i].status = 'Pending' then
+      Inc(totalPending)
+    else if laporan[i].status = 'Processed' then
+      Inc(totalProcessed);
   end;
 
-  patroliAktif := True;
-  petugasAktif := petugas[apDepan].nama;
+  writeln('===== DASHBOARD SISTEM =====');
+  writeln('Hari                : ', HariSekarang);
+  writeln('Jumlah Petugas      : ', jumlahPetugas);
+  writeln('Total Laporan       : ', jumlahLaporan);
+  writeln('Laporan Pending     : ', totalPending);
+  writeln('Laporan Processed   : ', totalProcessed);
+  writeln;
 
-  writeln('Petugas diberangkatkan: ', petugas[apDepan].nama);
+  writeln('Petugas Aktif Hari Ini:');
 
-  jam := CariJamRawan;
-  if jam <> -1 then
-    writeln('Sistem mendeteksi jam rawan: ', jam:2, ':00');
+  for i := 1 to 7 do
+  begin
+    if jadwal[i].hari = HariSekarang then
+    begin
+      if jadwal[i].petugas1 <> 0 then
+        writeln('- ', petugas[jadwal[i].petugas1].nama);
 
-  KeluarAntreanPetugas;
-  SimpanSemua;
-  Jeda;
-end;
+      if jadwal[i].petugas2 <> 0 then
+        writeln('- ', petugas[jadwal[i].petugas2].nama);
 
-procedure MenuPatroli;
-var
-  pilih: char;
-begin
-  repeat
-    ClrScr;
-    writeln('===== MENU PATROLI =====');
-    writeln('1. Tambah Petugas');
-    writeln('2. Lihat Antrean Petugas');
-    writeln('3. Berangkatkan Petugas');
-    writeln('0. Kembali');
-    write('Pilih: ');
-    readln(pilih);
-
-    case pilih of
-      '1': TambahPetugas;
-      '2': TampilAntreanPetugas;
-      '3': BerangkatkanPetugas;
+      Break;
     end;
-  until pilih = '0';
+  end;
+
+  Jeda;
 end;
 
-{ ================= STATISTIK ================= }
-
-procedure TampilStatistik;
+procedure Statistik;
 var
-  i, tinggi: integer;
+  i, tinggi, sedang, rendah: integer;
 begin
   ClrScr;
+
   tinggi := 0;
+  sedang := 0;
+  rendah := 0;
 
-  for i := 1 to totalLaporan do
-    if laporan[i].prioritas = 3 then
-      Inc(tinggi);
+  for i := 1 to jumlahLaporan do
+  begin
+    case laporan[i].prioritas of
+      1: Inc(rendah);
+      2: Inc(sedang);
+      3: Inc(tinggi);
+    end;
+  end;
 
-  writeln('===== STATISTIK =====');
-  writeln('Total Laporan            : ', totalLaporan);
-  writeln('Laporan Tertunda         : ', JumlahTertunda);
-  writeln('Laporan Diproses         : ', JumlahDiproses);
-  writeln('Laporan Prioritas Tinggi : ', tinggi);
+  writeln('===== STATISTIK LAPORAN =====');
+  writeln('Prioritas Rendah  : ', rendah);
+  writeln('Prioritas Sedang  : ', sedang);
+  writeln('Prioritas Tinggi  : ', tinggi);
 
   Jeda;
 end;
-
-
-
-{ ================= MENU UTAMA ================= }
 
 procedure MenuUtama;
 var
@@ -731,44 +613,30 @@ var
 begin
   repeat
     ClrScr;
-
-    writeln('=========================================');
-    writeln('    SISTEM PEMANTAUAN KEAMANAN PINTAR');
-    writeln('=========================================');
-    writeln('1. Dasbor');
-    writeln('2. Manajemen Laporan');
-    writeln('3. Manajemen Petugas dan Patroli');
-    writeln('4. Statistik');
-    writeln('5. Simpan Data');
-    writeln('6. Ekspor Laporan (As Txt)');
+    writeln('========================================');
+    writeln(' SMART SECURITY SYSTEM RT/RW');
+    writeln('========================================');
+    writeln('1. Dashboard');
+    writeln('2. Master Petugas');
+    writeln('3. Jadwal Patroli');
+    writeln('4. Laporan Keamanan');
+    writeln('5. Statistik');
     writeln('0. Keluar');
-    writeln('=========================================');
-
-    write('Pilih menu: ');
+    writeln('========================================');
+    write('Pilih: ');
     readln(pilih);
 
     case pilih of
-      '1': TampilDasbor;
-      '2': MenuLaporan;
-      '3': MenuPatroli;
-      '4': TampilStatistik;
-      '5': begin
-             SimpanSemua;
-             writeln('Data berhasil disimpan.');
-             Jeda;
-           end;
-      '6': EksporTXT;
+      '1': Dashboard;
+      '2': MenuPetugas;
+      '3': MenuJadwal;
+      '4': MenuLaporan;
+      '5': Statistik;
     end;
-
   until pilih = '0';
 end;
 
 begin
-  totalLaporan := 0;
-  totalPetugas := 0;
-  patroliAktif := False;
-
-  ResetAntrean;
-  MuatSemua;
+  InitJadwal;
   MenuUtama;
 end.
