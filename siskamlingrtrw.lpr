@@ -42,11 +42,136 @@ var
   laporan: array[1..MAX_LAPORAN] of TLaporan;
   jumlahLaporan: integer = 0;
 
+  filePetugas: file of TPetugas;
+  fileJadwal: file of TJadwal;
+  fileLaporan: file of TLaporan;
+
 procedure Jeda;
 begin
   writeln;
   writeln('Tekan Enter...');
   readln;
+end;
+
+procedure SavePetugas;
+var
+  i: integer;
+begin
+  Assign(filePetugas, 'petugas.dat');
+  Rewrite(filePetugas);
+
+  for i := 1 to jumlahPetugas do
+    Write(filePetugas, petugas[i]);
+
+  Close(filePetugas);
+end;
+
+procedure LoadPetugas;
+var
+  temp: TPetugas;
+begin
+  jumlahPetugas := 0;
+
+  Assign(filePetugas, 'petugas.dat');
+  {$I-}
+  Reset(filePetugas);
+  {$I+}
+
+  if IOResult = 0 then
+  begin
+    while not EOF(filePetugas) do
+    begin
+      Read(filePetugas, temp);
+      Inc(jumlahPetugas);
+      petugas[jumlahPetugas] := temp;
+    end;
+
+    Close(filePetugas);
+  end;
+end;
+
+procedure SaveJadwal;
+var
+  i: integer;
+begin
+  Assign(fileJadwal, 'jadwal.dat');
+  Rewrite(fileJadwal);
+
+  for i := 1 to 7 do
+    Write(fileJadwal, jadwal[i]);
+
+  Close(fileJadwal);
+end;
+
+procedure LoadJadwal;
+var
+  i: integer;
+begin
+  Assign(fileJadwal, 'jadwal.dat');
+
+  {$I-}
+  Reset(fileJadwal);
+  {$I+}
+
+  if IOResult = 0 then
+  begin
+    for i := 1 to 7 do
+      Read(fileJadwal, jadwal[i]);
+
+    Close(fileJadwal);
+  end;
+end;
+
+procedure SaveLaporan;
+var
+  i: integer;
+begin
+  Assign(fileLaporan, 'laporan.dat');
+  Rewrite(fileLaporan);
+
+  for i := 1 to jumlahLaporan do
+    Write(fileLaporan, laporan[i]);
+
+  Close(fileLaporan);
+end;
+
+procedure LoadLaporan;
+var
+  temp: TLaporan;
+begin
+  jumlahLaporan := 0;
+
+  Assign(fileLaporan, 'laporan.dat');
+
+  {$I-}
+  Reset(fileLaporan);
+  {$I+}
+
+  if IOResult = 0 then
+  begin
+    while not EOF(fileLaporan) do
+    begin
+      Read(fileLaporan, temp);
+      Inc(jumlahLaporan);
+      laporan[jumlahLaporan] := temp;
+    end;
+
+    Close(fileLaporan);
+  end;
+end;
+
+procedure SaveSemua;
+begin
+  SavePetugas;
+  SaveJadwal;
+  SaveLaporan;
+end;
+
+procedure LoadSemua;
+begin
+  LoadPetugas;
+  LoadJadwal;
+  LoadLaporan;
 end;
 
 function HariSekarang: string;
@@ -132,6 +257,7 @@ begin
   readln(petugas[jumlahPetugas].blok);
 
   writeln('Petugas berhasil ditambahkan.');
+  SaveSemua;
   Jeda;
 end;
 
@@ -169,6 +295,7 @@ begin
   readln(petugas[id].blok);
 
   writeln('Data berhasil diupdate.');
+  SaveSemua;
   Jeda;
 end;
 
@@ -208,6 +335,7 @@ begin
   Dec(jumlahPetugas);
 
   writeln('Petugas berhasil dihapus.');
+  SaveSemua;
   Jeda;
 end;
 
@@ -324,6 +452,7 @@ begin
   jadwal[hari].petugas2 := p2;
 
   writeln('Jadwal berhasil diatur.');
+  SaveSemua;
   Jeda;
 end;
 
@@ -418,6 +547,7 @@ begin
   laporan[jumlahLaporan].status := 'Pending';
 
   writeln('Laporan berhasil ditambahkan.');
+  SaveSemua;
   Jeda;
 end;
 
@@ -511,6 +641,7 @@ begin
 
   writeln;
   writeln('Laporan selesai diproses.');
+  SaveSemua;
   Jeda;
 end;
 
@@ -607,6 +738,171 @@ begin
   Jeda;
 end;
 
+procedure ExportPetugasCSV;
+var
+  f: Text;
+  i: integer;
+begin
+  Assign(f, 'petugas.csv');
+  Rewrite(f);
+
+  writeln(f, 'ID,Nama,Blok');
+
+  for i := 1 to jumlahPetugas do
+    writeln(f,
+      petugas[i].id, ',',
+      petugas[i].nama, ',',
+      petugas[i].blok
+    );
+
+  Close(f);
+
+  writeln('Export petugas selesai.');
+  Jeda;
+end;
+
+procedure ExportJadwalCSV;
+var
+  f: Text;
+  i: integer;
+  nama1, nama2: string;
+begin
+  Assign(f, 'jadwal.csv');
+  Rewrite(f);
+
+  writeln(f, 'Hari,Petugas1,Petugas2');
+
+  for i := 1 to 7 do
+  begin
+    nama1 := '-';
+    nama2 := '-';
+
+    if jadwal[i].petugas1 <> 0 then
+      nama1 := petugas[jadwal[i].petugas1].nama;
+
+    if jadwal[i].petugas2 <> 0 then
+      nama2 := petugas[jadwal[i].petugas2].nama;
+
+    writeln(f,
+      jadwal[i].hari, ',',
+      nama1, ',',
+      nama2
+    );
+  end;
+
+  Close(f);
+
+  writeln('Export jadwal selesai.');
+  Jeda;
+end;
+
+procedure ExportLaporanCSV;
+var
+  f: Text;
+  i: integer;
+begin
+  Assign(f, 'laporan.csv');
+  Rewrite(f);
+
+  writeln(f, 'ID,Waktu,Pelapor,Lokasi,Kategori,Prioritas,Status');
+
+  for i := 1 to jumlahLaporan do
+  begin
+    writeln(f,
+      laporan[i].id, ',',
+      laporan[i].waktu, ',',
+      laporan[i].pelapor, ',',
+      laporan[i].lokasi, ',',
+      laporan[i].kategori, ',',
+      laporan[i].prioritas, ',',
+      laporan[i].status
+    );
+  end;
+
+  Close(f);
+
+  writeln('Export laporan selesai.');
+  Jeda;
+end;
+
+procedure ExportStatistikCSV;
+var
+  f: Text;
+  i, pending, processed, tinggi, sedang, rendah: integer;
+begin
+  pending := 0;
+  processed := 0;
+  tinggi := 0;
+  sedang := 0;
+  rendah := 0;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    if laporan[i].status = 'Pending' then Inc(pending);
+    if laporan[i].status = 'Processed' then Inc(processed);
+
+    case laporan[i].prioritas of
+      1: Inc(rendah);
+      2: Inc(sedang);
+      3: Inc(tinggi);
+    end;
+  end;
+
+  Assign(f, 'statistik.csv');
+  Rewrite(f);
+
+  writeln(f, 'Metric,Value');
+  writeln(f, 'Total Petugas,', jumlahPetugas);
+  writeln(f, 'Total Laporan,', jumlahLaporan);
+  writeln(f, 'Pending,', pending);
+  writeln(f, 'Processed,', processed);
+  writeln(f, 'Prioritas Rendah,', rendah);
+  writeln(f, 'Prioritas Sedang,', sedang);
+  writeln(f, 'Prioritas Tinggi,', tinggi);
+
+  Close(f);
+
+  writeln('Export statistik selesai.');
+  Jeda;
+end;
+
+procedure ExportSemua;
+begin
+  ExportPetugasCSV;
+  ExportJadwalCSV;
+  ExportLaporanCSV;
+  ExportStatistikCSV;
+
+  writeln('Semua data berhasil diexport.');
+  Jeda;
+end;
+
+procedure MenuExport;
+var
+  pilih: char;
+begin
+  repeat
+    ClrScr;
+    writeln('===== MENU EXPORT =====');
+    writeln('1. Export Petugas CSV');
+    writeln('2. Export Jadwal CSV');
+    writeln('3. Export Laporan CSV');
+    writeln('4. Export Statistik CSV');
+    writeln('5. Export Semua');
+    writeln('0. Kembali');
+    write('Pilih: ');
+    readln(pilih);
+
+    case pilih of
+      '1': ExportPetugasCSV;
+      '2': ExportJadwalCSV;
+      '3': ExportLaporanCSV;
+      '4': ExportStatistikCSV;
+      '5': ExportSemua;
+    end;
+  until pilih = '0';
+end;
+
 procedure MenuUtama;
 var
   pilih: char;
@@ -617,10 +913,11 @@ begin
     writeln(' SMART SECURITY SYSTEM RT/RW');
     writeln('========================================');
     writeln('1. Dashboard');
-    writeln('2. Master Petugas');
+    writeln('2. Menu Petugas');
     writeln('3. Jadwal Patroli');
     writeln('4. Laporan Keamanan');
     writeln('5. Statistik');
+    writeln('6. Export Data');
     writeln('0. Keluar');
     writeln('========================================');
     write('Pilih: ');
@@ -632,11 +929,14 @@ begin
       '3': MenuJadwal;
       '4': MenuLaporan;
       '5': Statistik;
+      '6': MenuExport;
     end;
   until pilih = '0';
 end;
 
 begin
   InitJadwal;
+  LoadSemua;
   MenuUtama;
+  SaveSemua;
 end.
