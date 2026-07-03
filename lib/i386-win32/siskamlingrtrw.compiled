@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <Compiler Value="C:\lazarus\fpc\3.2.2\bin\i386-win32\fpc.exe" Date="1556502949"/>
-  <Params Value="-MObjFPC -Scghi -O1 -gw3 -gl -l -vewnhibq &quot;-FiC:\Users\aryol.LAPTOP-O5T7KIOU\Desktop\Aryo\School\Uni\Smt. 2\Algoritma &amp; Pemrograman 2\2A\Test Tugas M9 CLI\lib\i386-win32&quot; &quot;-FuC:\Users\aryol.LAPTOP-O5T7KIOU\Desktop\Aryo\School\Uni\Smt. 2\Algoritma &amp; Pemrograman 2\2A\Test Tugas M9 CLI\&quot; &quot;-FUC:\Users\aryol.LAPTOP-O5T7KIOU\Desktop\Aryo\School\Uni\Smt. 2\Algoritma &amp; Pemrograman 2\2A\Test Tugas M9 CLI\lib\i386-win32\&quot; &quot;-FEC:\Users\aryol.LAPTOP-O5T7KIOU\Desktop\Aryo\School\Uni\Smt. 2\Algoritma &amp; Pemrograman 2\2A\Test Tugas M9 CLI\&quot; &quot;-oC:\Users\aryol.LAPTOP-O5T7KIOU\Desktop\Aryo\School\Uni\Smt. 2\Algoritma &amp; Pemrograman 2\2A\Test Tugas M9 CLI\siskamlingrtrw.exe&quot; siskamlingrtrw.lpr"/>
+  <Params Value="-MObjFPC -Scghi -O1 -gw3 -gl -l -vewnhibq &quot;-FiC:\Project\Test Tugas M9 CLI\lib\i386-win32&quot; &quot;-FuC:\Project\Test Tugas M9 CLI\&quot; &quot;-FUC:\Project\Test Tugas M9 CLI\lib\i386-win32\&quot; &quot;-FEC:\Project\Test Tugas M9 CLI\&quot; &quot;-oC:\Project\Test Tugas M9 CLI\siskamlingrtrw.exe&quot; siskamlingrtrw.lpr"/>
 </CONFIG>
