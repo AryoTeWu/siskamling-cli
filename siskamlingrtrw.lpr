@@ -740,7 +740,7 @@ begin
     writeln('3. Manajemen Petugas dan Patroli');
     writeln('4. Statistik');
     writeln('5. Simpan Data');
-    writeln('6. Impor Data');
+    writeln('6. Ekspor Laporan (As Txt)');
     writeln('0. Keluar');
     writeln('=========================================');
 
