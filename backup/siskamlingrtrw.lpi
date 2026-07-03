@@ -28,7 +28,6 @@
       <Unit>
         <Filename Value="siskamlingrtrw.lpr"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="SistemPemantauanKeamananPintarV2"/>
       </Unit>
     </Units>
   </ProjectOptions>

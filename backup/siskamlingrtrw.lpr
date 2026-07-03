@@ -400,7 +400,7 @@ begin
   jam := CariJamRawan;
 
   writeln('=========================================');
-  writeln(' SISTEM PEMANTAUAN KEAMANAN PINTAR V2');
+  writeln('    SISTEM PEMANTAUAN KEAMANAN PINTAR');
   writeln('=========================================');
   writeln('Total Laporan     : ', totalLaporan);
   writeln('Laporan Tertunda  : ', JumlahTertunda);
@@ -554,7 +554,7 @@ begin
 
   if alDepan > alBelakang then
   begin
-    writeln('Tidak ada laporan tertunda.');
+    writeln('Tidak ada laporan yang belum diproses.');
     Jeda;
     Exit;
   end;
@@ -585,7 +585,7 @@ begin
     writeln('===== MENU LAPORAN =====');
     writeln('1. Input Laporan');
     writeln('2. Lihat Semua Laporan');
-    writeln('3. Lihat Antrean Tertunda');
+    writeln('3. Lihat Laporan Belum Diproses');
     writeln('4. Proses Laporan');
     writeln('5. Cari Laporan berdasarkan ID');
     writeln('6. Cari Laporan berdasarkan Lokasi');
@@ -733,11 +733,11 @@ begin
     ClrScr;
 
     writeln('=========================================');
-    writeln(' SISTEM PEMANTAUAN KEAMANAN PINTAR V2');
+    writeln('    SISTEM PEMANTAUAN KEAMANAN PINTAR');
     writeln('=========================================');
     writeln('1. Dasbor');
     writeln('2. Manajemen Laporan');
-    writeln('3. Manajemen Patroli');
+    writeln('3. Manajemen Petugas dan Patroli');
     writeln('4. Statistik');
     writeln('5. Simpan Manual');
     writeln('6. Ekspor TXT');
