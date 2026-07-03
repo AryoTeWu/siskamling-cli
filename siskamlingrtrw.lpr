@@ -6,7 +6,7 @@ uses
   SysUtils, CRT;
 
 const
-  MAX_PETUGAS = 5;
+  MAX_PETUGAS = 50;
   MAX_LAPORAN = 100;
   MAX_JADWAL = 7;
 
@@ -18,9 +18,9 @@ type
   end;
 
   TJadwal = record
-    hari: string[15];
-    petugas1: integer;
-    petugas2: integer;
+    hari: string[20];
+    petugas: array[1..5] of integer;
+    jumlahPetugas: integer;
   end;
 
   TLaporan = record
@@ -189,7 +189,44 @@ begin
   else Result := 'Minggu';
 end;
 
+function PetugasSudahAda(hari, idPetugas: integer): boolean;
+var
+  i: integer;
+begin
+  Result := False;
+
+  for i := 1 to jadwal[hari].jumlahPetugas do
+  begin
+    if jadwal[hari].petugas[i] = idPetugas then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+procedure TambahPetugasKeJadwal(hari, idPetugas: integer);
+begin
+  if jadwal[hari].jumlahPetugas >= 5 then
+  begin
+    writeln('Jadwal hari ini sudah penuh (max 5 petugas).');
+    Exit;
+  end;
+
+  if PetugasSudahAda(hari, idPetugas) then
+  begin
+    writeln('Petugas sudah terdaftar di hari tersebut.');
+    Exit;
+  end;
+
+  Inc(jadwal[hari].jumlahPetugas);
+  jadwal[hari].petugas[jadwal[hari].jumlahPetugas] := idPetugas;
+end;
+
+
 procedure InitJadwal;
+var
+  i, j: integer;
 begin
   jadwal[1].hari := 'Senin';
   jadwal[2].hari := 'Selasa';
@@ -199,13 +236,13 @@ begin
   jadwal[6].hari := 'Sabtu';
   jadwal[7].hari := 'Minggu';
 
-  jadwal[1].petugas1 := 0; jadwal[1].petugas2 := 0;
-  jadwal[2].petugas1 := 0; jadwal[2].petugas2 := 0;
-  jadwal[3].petugas1 := 0; jadwal[3].petugas2 := 0;
-  jadwal[4].petugas1 := 0; jadwal[4].petugas2 := 0;
-  jadwal[5].petugas1 := 0; jadwal[5].petugas2 := 0;
-  jadwal[6].petugas1 := 0; jadwal[6].petugas2 := 0;
-  jadwal[7].petugas1 := 0; jadwal[7].petugas2 := 0;
+  for i := 1 to 7 do
+  begin
+    jadwal[i].jumlahPetugas := 0;
+
+    for j := 1 to 5 do
+      jadwal[i].petugas[j] := 0;
+  end;
 end;
 
 procedure TampilPetugas;
@@ -237,12 +274,6 @@ procedure TambahPetugas;
 begin
   ClrScr;
 
-  if jumlahPetugas >= MAX_PETUGAS then
-  begin
-    writeln('Maksimal petugas hanya 5 orang.');
-    Jeda;
-    Exit;
-  end;
 
   Inc(jumlahPetugas);
 
@@ -339,6 +370,89 @@ begin
   Jeda;
 end;
 
+function CariJamRawan: integer;
+var
+  jamCount: array[0..23] of integer;
+  i, jam, maxCount: integer;
+  jamStr: string[2];
+begin
+  for i := 0 to 23 do
+    jamCount[i] := 0;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    jamStr := Copy(laporan[i].waktu, 1, 2);
+    jam := StrToIntDef(jamStr, -1);
+
+    if (jam >= 0) and (jam <= 23) then
+      Inc(jamCount[jam]);
+  end;
+
+  Result := -1;
+  maxCount := 0;
+
+  for i := 0 to 23 do
+  begin
+    if jamCount[i] > maxCount then
+    begin
+      maxCount := jamCount[i];
+      Result := i;
+    end;
+  end;
+end;
+
+function KategoriTerbanyak: string;
+var
+  i, j, count, maxCount: integer;
+begin
+  Result := '-';
+  maxCount := 0;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    count := 0;
+
+    for j := 1 to jumlahLaporan do
+    begin
+      if laporan[i].kategori = laporan[j].kategori then
+        Inc(count);
+    end;
+
+    if count > maxCount then
+    begin
+      maxCount := count;
+      Result := laporan[i].kategori;
+    end;
+  end;
+end;
+
+function CariDangerZone: string;
+var
+  i, j, count, maxCount: integer;
+begin
+  Result := '-';
+  maxCount := 0;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    count := 0;
+
+    for j := 1 to jumlahLaporan do
+    begin
+      if laporan[i].lokasi = laporan[j].lokasi then
+        Inc(count);
+    end;
+
+    if count > maxCount then
+    begin
+      maxCount := count;
+      Result := laporan[i].lokasi;
+    end;
+  end;
+end;
+
+
+
 procedure MenuPetugas;
 var
   pilih: char;
@@ -365,7 +479,7 @@ end;
 
 procedure TampilJadwal;
 var
-  i: integer;
+  i, j: integer;
 begin
   ClrScr;
   writeln('===== JADWAL PATROLI =====');
@@ -374,15 +488,18 @@ begin
   begin
     writeln(jadwal[i].hari);
 
-    if jadwal[i].petugas1 <> 0 then
-      writeln('Petugas 1: ', petugas[jadwal[i].petugas1].nama)
+    if jadwal[i].jumlahPetugas = 0 then
+      writeln('Belum ada petugas.')
     else
-      writeln('Petugas 1: -');
-
-    if jadwal[i].petugas2 <> 0 then
-      writeln('Petugas 2: ', petugas[jadwal[i].petugas2].nama)
-    else
-      writeln('Petugas 2: -');
+    begin
+      for j := 1 to jadwal[i].jumlahPetugas do
+      begin
+        writeln(
+          'Petugas ', j, ': ',
+          petugas[jadwal[i].petugas[j]].nama
+        );
+      end;
+    end;
 
     writeln('---------------------------');
   end;
@@ -392,16 +509,9 @@ end;
 
 procedure AturJadwal;
 var
-  hari, p1, p2, i: integer;
+  hari, idPetugas, i: integer;
 begin
   ClrScr;
-
-  if jumlahPetugas < 2 then
-  begin
-    writeln('Minimal butuh 2 petugas.');
-    Jeda;
-    Exit;
-  end;
 
   writeln('===== ATUR JADWAL =====');
   writeln('1. Senin');
@@ -415,51 +525,30 @@ begin
   write('Pilih hari: ');
   readln(hari);
 
-  if (hari < 1) or (hari > 7) then
-  begin
-    writeln('Hari tidak valid.');
-    Jeda;
-    Exit;
-  end;
+  if (hari < 1) or (hari > 7) then Exit;
 
   writeln;
   writeln('Daftar Petugas:');
+
   for i := 1 to jumlahPetugas do
-    writeln(petugas[i].id, '. ', petugas[i].nama);
-
-  write('Pilih Petugas 1 (ID): ');
-  readln(p1);
-
-  write('Pilih Petugas 2 (ID): ');
-  readln(p2);
-
-  if (p1 < 1) or (p1 > jumlahPetugas) or
-     (p2 < 1) or (p2 > jumlahPetugas) then
   begin
-    writeln('ID petugas tidak valid.');
-    Jeda;
-    Exit;
+    if not PetugasSudahAda(hari, petugas[i].id) then
+      writeln(petugas[i].id, '. ', petugas[i].nama);
   end;
 
-  if p1 = p2 then
-  begin
-    writeln('Petugas tidak boleh sama.');
-    Jeda;
-    Exit;
-  end;
+  write('Pilih ID petugas: ');
+  readln(idPetugas);
 
-  jadwal[hari].petugas1 := p1;
-  jadwal[hari].petugas2 := p2;
+  TambahPetugasKeJadwal(hari, idPetugas);
 
-  writeln('Jadwal berhasil diatur.');
   SaveSemua;
   Jeda;
 end;
 
 procedure TampilPetugasHariIni;
 var
-  hariSek, hariJadwal: string;
-  i: integer;
+  hariSek: string;
+  i, j: integer;
 begin
   ClrScr;
   writeln('===== PETUGAS HARI INI =====');
@@ -470,19 +559,27 @@ begin
 
   for i := 1 to 7 do
   begin
-    hariJadwal := jadwal[i].hari;
-
-    if hariSek = hariJadwal then
+    if hariSek = jadwal[i].hari then
     begin
-      if jadwal[i].petugas1 <> 0 then
-        writeln('Petugas 1: ', petugas[jadwal[i].petugas1].nama)
+      if jadwal[i].jumlahPetugas = 0 then
+      begin
+        writeln('Belum ada petugas dijadwalkan hari ini.');
+      end
       else
-        writeln('Petugas 1: -');
+      begin
+        writeln('Jumlah Petugas: ', jadwal[i].jumlahPetugas);
+        writeln;
 
-      if jadwal[i].petugas2 <> 0 then
-        writeln('Petugas 2: ', petugas[jadwal[i].petugas2].nama)
-      else
-        writeln('Petugas 2: -');
+        for j := 1 to jadwal[i].jumlahPetugas do
+        begin
+          writeln(
+            j, '. ',
+            petugas[jadwal[i].petugas[j]].nama,
+            ' - Blok ',
+            petugas[jadwal[i].petugas[j]].blok
+          );
+        end;
+      end;
 
       Break;
     end;
@@ -582,7 +679,7 @@ end;
 
 procedure DispatchDarurat;
 var
-  i: integer;
+  i, j: integer;
 begin
   writeln;
   writeln('===== DISPATCH DARURAT =====');
@@ -591,11 +688,22 @@ begin
   begin
     if jadwal[i].hari = HariSekarang then
     begin
-      if jadwal[i].petugas1 <> 0 then
-        writeln('Petugas 1: ', petugas[jadwal[i].petugas1].nama);
+      if jadwal[i].jumlahPetugas = 0 then
+      begin
+        writeln('Tidak ada petugas standby hari ini.');
+      end
+      else
+      begin
+        writeln('Petugas standby hari ini:');
 
-      if jadwal[i].petugas2 <> 0 then
-        writeln('Petugas 2: ', petugas[jadwal[i].petugas2].nama);
+        for j := 1 to jadwal[i].jumlahPetugas do
+        begin
+          writeln(
+            j, '. ',
+            petugas[jadwal[i].petugas[j]].nama
+          );
+        end;
+      end;
 
       Break;
     end;
@@ -669,7 +777,8 @@ end;
 
 procedure Dashboard;
 var
-  totalPending, totalProcessed, i: integer;
+  totalPending, totalProcessed: integer;
+  i, j: integer;
 begin
   ClrScr;
 
@@ -698,11 +807,20 @@ begin
   begin
     if jadwal[i].hari = HariSekarang then
     begin
-      if jadwal[i].petugas1 <> 0 then
-        writeln('- ', petugas[jadwal[i].petugas1].nama);
-
-      if jadwal[i].petugas2 <> 0 then
-        writeln('- ', petugas[jadwal[i].petugas2].nama);
+      if jadwal[i].jumlahPetugas = 0 then
+      begin
+        writeln('- Tidak ada petugas');
+      end
+      else
+      begin
+        for j := 1 to jadwal[i].jumlahPetugas do
+        begin
+          writeln(
+            '- ',
+            petugas[jadwal[i].petugas[j]].nama
+          );
+        end;
+      end;
 
       Break;
     end;
@@ -714,15 +832,23 @@ end;
 procedure Statistik;
 var
   i, tinggi, sedang, rendah: integer;
+  pending, processed: integer;
 begin
   ClrScr;
 
   tinggi := 0;
   sedang := 0;
   rendah := 0;
+  pending := 0;
+  processed := 0;
 
   for i := 1 to jumlahLaporan do
   begin
+    if laporan[i].status = 'Pending' then
+      Inc(pending)
+    else if laporan[i].status = 'Processed' then
+      Inc(processed);
+
     case laporan[i].prioritas of
       1: Inc(rendah);
       2: Inc(sedang);
@@ -730,10 +856,18 @@ begin
     end;
   end;
 
-  writeln('===== STATISTIK LAPORAN =====');
-  writeln('Prioritas Rendah  : ', rendah);
-  writeln('Prioritas Sedang  : ', sedang);
-  writeln('Prioritas Tinggi  : ', tinggi);
+  writeln('===== STATISTIK KEAMANAN =====');
+  writeln('Total Laporan       : ', jumlahLaporan);
+  writeln('Pending             : ', pending);
+  writeln('Processed           : ', processed);
+  writeln;
+  writeln('Prioritas Rendah    : ', rendah);
+  writeln('Prioritas Sedang    : ', sedang);
+  writeln('Prioritas Tinggi    : ', tinggi);
+  writeln;
+  writeln('Jam Rawan           : ', CariJamRawan:2, ':00');
+  writeln('Kategori Terbanyak  : ', KategoriTerbanyak);
+  writeln('Danger Zone         : ', CariDangerZone);
 
   Jeda;
 end;
@@ -764,29 +898,32 @@ end;
 procedure ExportJadwalCSV;
 var
   f: Text;
-  i: integer;
-  nama1, nama2: string;
+  i, j: integer;
+  namaPetugas: array[1..5] of string;
 begin
   Assign(f, 'jadwal.csv');
   Rewrite(f);
 
-  writeln(f, 'Hari,Petugas1,Petugas2');
+  writeln(f, 'Hari,Petugas1,Petugas2,Petugas3,Petugas4,Petugas5');
 
   for i := 1 to 7 do
   begin
-    nama1 := '-';
-    nama2 := '-';
+    for j := 1 to 5 do
+      namaPetugas[j] := '-';
 
-    if jadwal[i].petugas1 <> 0 then
-      nama1 := petugas[jadwal[i].petugas1].nama;
-
-    if jadwal[i].petugas2 <> 0 then
-      nama2 := petugas[jadwal[i].petugas2].nama;
+    for j := 1 to jadwal[i].jumlahPetugas do
+    begin
+      namaPetugas[j] :=
+        petugas[jadwal[i].petugas[j]].nama;
+    end;
 
     writeln(f,
       jadwal[i].hari, ',',
-      nama1, ',',
-      nama2
+      namaPetugas[1], ',',
+      namaPetugas[2], ',',
+      namaPetugas[3], ',',
+      namaPetugas[4], ',',
+      namaPetugas[5]
     );
   end;
 
@@ -859,6 +996,9 @@ begin
   writeln(f, 'Prioritas Rendah,', rendah);
   writeln(f, 'Prioritas Sedang,', sedang);
   writeln(f, 'Prioritas Tinggi,', tinggi);
+  writeln(f, 'Jam Rawan,', CariJamRawan);
+  writeln(f, 'Kategori Terbanyak,', KategoriTerbanyak);
+  writeln(f, 'Danger Zone,', CariDangerZone);
 
   Close(f);
 
