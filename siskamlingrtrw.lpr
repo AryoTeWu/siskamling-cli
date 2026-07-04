@@ -46,12 +46,112 @@ var
   fileJadwal: file of TJadwal;
   fileLaporan: file of TLaporan;
 
+{ ========== Utility ========== }
+
 procedure Jeda;
 begin
   writeln;
   writeln('Tekan Enter...');
   readln;
 end;
+
+function HariSekarang: string;
+var
+  h: string;
+begin
+  h := FormatDateTime('dddd', Now);
+
+  if h = 'Monday' then Result := 'Senin'
+  else if h = 'Tuesday' then Result := 'Selasa'
+  else if h = 'Wednesday' then Result := 'Rabu'
+  else if h = 'Thursday' then Result := 'Kamis'
+  else if h = 'Friday' then Result := 'Jumat'
+  else if h = 'Saturday' then Result := 'Sabtu'
+  else Result := 'Minggu';
+end;
+
+function CariJamRawan: integer;
+var
+  jamCount: array[0..23] of integer;
+  i, jam, maxCount: integer;
+  jamStr: string[2];
+begin
+  for i := 0 to 23 do
+    jamCount[i] := 0;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    jamStr := Copy(laporan[i].waktu, 1, 2);
+    jam := StrToIntDef(jamStr, -1);
+
+    if (jam >= 0) and (jam <= 23) then
+      Inc(jamCount[jam]);
+  end;
+
+  Result := -1;
+  maxCount := 0;
+
+  for i := 0 to 23 do
+  begin
+    if jamCount[i] > maxCount then
+    begin
+      maxCount := jamCount[i];
+      Result := i;
+    end;
+  end;
+end;
+
+function KategoriTerbanyak: string;
+var
+  i, j, count, maxCount: integer;
+begin
+  Result := '-';
+  maxCount := 0;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    count := 0;
+
+    for j := 1 to jumlahLaporan do
+    begin
+      if laporan[i].kategori = laporan[j].kategori then
+        Inc(count);
+    end;
+
+    if count > maxCount then
+    begin
+      maxCount := count;
+      Result := laporan[i].kategori;
+    end;
+  end;
+end;
+
+function CariDangerZone: string;
+var
+  i, j, count, maxCount: integer;
+begin
+  Result := '-';
+  maxCount := 0;
+
+  for i := 1 to jumlahLaporan do
+  begin
+    count := 0;
+
+    for j := 1 to jumlahLaporan do
+    begin
+      if laporan[i].lokasi = laporan[j].lokasi then
+        Inc(count);
+    end;
+
+    if count > maxCount then
+    begin
+      maxCount := count;
+      Result := laporan[i].lokasi;
+    end;
+  end;
+end;
+
+{ ========== File Handling utk I/O ========== }
 
 procedure SavePetugas;
 var
@@ -174,56 +274,6 @@ begin
   LoadLaporan;
 end;
 
-function HariSekarang: string;
-var
-  h: string;
-begin
-  h := FormatDateTime('dddd', Now);
-
-  if h = 'Monday' then Result := 'Senin'
-  else if h = 'Tuesday' then Result := 'Selasa'
-  else if h = 'Wednesday' then Result := 'Rabu'
-  else if h = 'Thursday' then Result := 'Kamis'
-  else if h = 'Friday' then Result := 'Jumat'
-  else if h = 'Saturday' then Result := 'Sabtu'
-  else Result := 'Minggu';
-end;
-
-function PetugasSudahAda(hari, idPetugas: integer): boolean;
-var
-  i: integer;
-begin
-  Result := False;
-
-  for i := 1 to jadwal[hari].jumlahPetugas do
-  begin
-    if jadwal[hari].petugas[i] = idPetugas then
-    begin
-      Result := True;
-      Exit;
-    end;
-  end;
-end;
-
-procedure TambahPetugasKeJadwal(hari, idPetugas: integer);
-begin
-  if jadwal[hari].jumlahPetugas >= 5 then
-  begin
-    writeln('Jadwal hari ini sudah penuh (max 5 petugas).');
-    Exit;
-  end;
-
-  if PetugasSudahAda(hari, idPetugas) then
-  begin
-    writeln('Petugas sudah terdaftar di hari tersebut.');
-    Exit;
-  end;
-
-  Inc(jadwal[hari].jumlahPetugas);
-  jadwal[hari].petugas[jadwal[hari].jumlahPetugas] := idPetugas;
-end;
-
-
 procedure InitJadwal;
 var
   i, j: integer;
@@ -244,6 +294,9 @@ begin
       jadwal[i].petugas[j] := 0;
   end;
 end;
+
+
+{ ========== Menu Petugas ========== }
 
 procedure TampilPetugas;
 var
@@ -274,9 +327,7 @@ procedure TambahPetugas;
 begin
   ClrScr;
 
-
   Inc(jumlahPetugas);
-
   petugas[jumlahPetugas].id := jumlahPetugas;
 
   writeln('===== TAMBAH PETUGAS =====');
@@ -370,89 +421,6 @@ begin
   Jeda;
 end;
 
-function CariJamRawan: integer;
-var
-  jamCount: array[0..23] of integer;
-  i, jam, maxCount: integer;
-  jamStr: string[2];
-begin
-  for i := 0 to 23 do
-    jamCount[i] := 0;
-
-  for i := 1 to jumlahLaporan do
-  begin
-    jamStr := Copy(laporan[i].waktu, 1, 2);
-    jam := StrToIntDef(jamStr, -1);
-
-    if (jam >= 0) and (jam <= 23) then
-      Inc(jamCount[jam]);
-  end;
-
-  Result := -1;
-  maxCount := 0;
-
-  for i := 0 to 23 do
-  begin
-    if jamCount[i] > maxCount then
-    begin
-      maxCount := jamCount[i];
-      Result := i;
-    end;
-  end;
-end;
-
-function KategoriTerbanyak: string;
-var
-  i, j, count, maxCount: integer;
-begin
-  Result := '-';
-  maxCount := 0;
-
-  for i := 1 to jumlahLaporan do
-  begin
-    count := 0;
-
-    for j := 1 to jumlahLaporan do
-    begin
-      if laporan[i].kategori = laporan[j].kategori then
-        Inc(count);
-    end;
-
-    if count > maxCount then
-    begin
-      maxCount := count;
-      Result := laporan[i].kategori;
-    end;
-  end;
-end;
-
-function CariDangerZone: string;
-var
-  i, j, count, maxCount: integer;
-begin
-  Result := '-';
-  maxCount := 0;
-
-  for i := 1 to jumlahLaporan do
-  begin
-    count := 0;
-
-    for j := 1 to jumlahLaporan do
-    begin
-      if laporan[i].lokasi = laporan[j].lokasi then
-        Inc(count);
-    end;
-
-    if count > maxCount then
-    begin
-      maxCount := count;
-      Result := laporan[i].lokasi;
-    end;
-  end;
-end;
-
-
-
 procedure MenuPetugas;
 var
   pilih: char;
@@ -475,6 +443,43 @@ begin
       '4': HapusPetugas;
     end;
   until pilih = '0';
+end;
+
+
+{ ========== Jadwal Patroli ========== }
+
+function PetugasSudahAda(hari, idPetugas: integer): boolean;
+var
+  i: integer;
+begin
+  Result := False;
+
+  for i := 1 to jadwal[hari].jumlahPetugas do
+  begin
+    if jadwal[hari].petugas[i] = idPetugas then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+procedure TambahPetugasKeJadwal(hari, idPetugas: integer);
+begin
+  if jadwal[hari].jumlahPetugas >= 5 then
+  begin
+    writeln('Jadwal hari ini sudah penuh (max 5 petugas).');
+    Exit;
+  end;
+
+  if PetugasSudahAda(hari, idPetugas) then
+  begin
+    writeln('Petugas sudah terdaftar di hari tersebut.');
+    Exit;
+  end;
+
+  Inc(jadwal[hari].jumlahPetugas);
+  jadwal[hari].petugas[jadwal[hari].jumlahPetugas] := idPetugas;
 end;
 
 procedure TampilJadwal;
@@ -626,6 +631,10 @@ begin
     end;
   until pilih = '0';
 end;
+
+
+
+{ ========== Laporan Keamanan ========== }
 
 procedure InputLaporan;
 begin
@@ -792,6 +801,10 @@ begin
   until pilih = '0';
 end;
 
+
+
+{ ========== Dashboard ========== }
+
 procedure Dashboard;
 var
   totalPending, totalProcessed: integer;
@@ -846,6 +859,10 @@ begin
   Jeda;
 end;
 
+
+
+{ ========== Statistik ========== }
+
 procedure Statistik;
 var
   i, tinggi, sedang, rendah: integer;
@@ -894,6 +911,10 @@ begin
 
   Jeda;
 end;
+
+
+
+{ ========== Export Data ========== }
 
 procedure ExportPetugasCSV;
 var
@@ -1073,6 +1094,10 @@ begin
     end;
   until pilih = '0';
 end;
+
+
+
+{ ========== Menu Utama ==========}
 
 procedure MenuUtama;
 var
